@@ -1,0 +1,21 @@
+[package]
+name = "mp4-sample"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[dependencies.inner_unikernel_rt]
+path = "../../inner_unikernel_rt"
+
+[profile.dev]
+panic = "abort"
+debug = false
+
+[profile.release]
+panic = "abort"
+debug = false
+lto = true
+

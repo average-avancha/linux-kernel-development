@@ -1,0 +1,13 @@
+[build]
+rustflags = [
+  "-Aunused",
+  "-Anon_camel_case_types",
+  "-Anon_upper_case_globals",
+  "-Anon_snake_case",
+  "-Cno-redzone",
+  "-Ccode-model=kernel",
+  "-Cforce-unwind-tables=n",
+  "-Csymbol-mangling-version=v0",
+  "-Ccodegen-units=1",
+  "-Ctarget-feature=-avx,-avx2,-sse,-sse2,-sse3,-sse4.1,-sse4.2,-sse4a,-ssse3,+soft-float",
+]

@@ -1,0 +1,9 @@
+*/loader
+*/event-trigger
+*/Cargo.lock
+*/src/linux
+*/src/stub.rs
+*/target
+*/.gdbinit
+*/.gdb_history
+*/syscall_tp

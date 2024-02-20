@@ -1,0 +1,220 @@
+* Inner Unikernels
+The emergence of verified eBPF bytecode is ushering in a new era of safe kernel
+extensions. In this paper, we argue that eBPF’s verifier—the source of its
+safety guarantees—has become a liability. In addition to the well-known bugs
+and vulnerabilities stemming from the complexity and ad hoc nature of the
+in-kernel verifier, we highlight a concerning trend in which escape hatches to
+unsafe kernel functions (in the form of helper functions) are being introduced
+to bypass verifier-imposed limitations on expressiveness, unfortunately also
+bypassing its safety guarantees. We propose safe kernel extension frameworks
+using a balance of not just static but also lightweight runtime techniques. We
+describe a design centered around kernel extensions in safe Rust that will
+eliminate the need of the in-kernel verifier, improve expressiveness, allow for
+reduced escape hatches, and ultimately improve the safety of kernel extensions.
+
+The basic ideas are documented in [[docs/rust-kernel-ext.pdf][a workshop paper]].
+
+*** Relevant github repos:
+- Linux Kernel: [[https://github.com/rosalab/linux/tree/inner_unikernels]]
+- Rust Toolchain: [[https://github.com/xlab-uiuc/rust]]
+- LLVM CodeGen for Rust: [[https://github.com/xlab-uiuc/llvm-rust]]
+
+Check out the [[docs/minutes.org][meeting minutes]].
+
+[[https://docs.google.com/document/d/1mQyJhhM25mEy63UYRi1JGvph67hJp8Qr8hAR0rJ5YQY/edit#heading=h.yds2twr4pha3][Onboarding task]]
+for new students.
+
+
+* SETUP (version 20230214)
+
+** Dependencies:
+The following tools/libraries are required. Older versions are not guaranteed
+to (or guaranteed not to) work. This list does not include standard kernel
+build dependencies.
+- binutils >= 2.38
+- elfutils
+- pahole
+- python tomli package (not needed if python >= 3.11)
+- cmake
+- ninja
+- QEMU
+
+** Repo setup and build
+
+Clone this repo and its submodules:
+#+BEGIN_SRC bash
+git clone https://github.com/djwillia/inner_unikernels.git
+cd inner_unikernels
+git submodule update --init --recursive --progress
+#+END_SRC
+
+The Linux directory now hosts the kernel repo, checked out at the pre-set
+commit. To build the kernel, do:
+#+BEGIN_SRC bash
+cd linux
+cp ./q-script/.config .config
+make oldconfig LLVM=1
+make -j`nproc` LLVM=1
+cd -
+#+END_SRC
+Note: The default configuration in this repo (~q-script/.config~) uses the LLVM
+toolchain (i.e. ~clang~, ~llvm-ar~, ~lld~, etc). If desired, the GNU toolchain
+(i.e. ~gcc~, ~ld.bfd~) can be used by removing the ~LLVM=1~ environment
+variable setup.
+
+Since ~libiu~ loader library depends on the ~libbpf~ shipped with the kernel,
+~libbpf~ needs to be built first:
+#+BEGIN_SRC bash
+cd linux/tools/lib/bpf
+make -j`nproc`
+cd -
+#+END_SRC
+
+Then bootstrap Rust:
+#+BEGIN_SRC bash
+cd rust
+./x.py build --config=inner-unikernels-config.toml
+./x.py install --config=inner-unikernels-config.toml
+cd -
+#+END_SRC
+The Rust artifacts are installed under ~rust/dist~.
+
+With the linux and Rust setup, add them to the environment:
+#+BEGIN_SRC bash
+source env.sh
+#+END_SRC
+
+Finally build libiu:
+#+BEGIN_SRC bash
+cd libiu
+make -j`nproc`
+cd -
+#+END_SRC
+
+** Run ~hello~ example
+
+First build the source
+#+BEGIN_SRC bash
+cd samples/hello
+make
+cd -
+#+END_SRC
+
+Then boot the VM:
+#+BEGIN_SRC bash
+cd linux
+../q-script/yifei-q
+#+END_SRC
+
+Inside the VM:
+#+BEGIN_SRC bash
+cd ..
+export LD_LIBRARY_PATH=`realpath ./libiu`:`realpath linux/tools/lib/bpf`:$LD_LIBRARY_PATH
+cd samples/hello
+./loader & 
+./event_trigger
+#+END_SRC
+
+The following output should be printed out:
+#+BEGIN_EXAMPLE
+<...>-245     [002] d...1    18.417331: bpf_trace_printk: Rust triggered from PID 245.
+#+END_EXAMPLE
+
+* Docker Setup
+
+In this setup, we will have ~runtime~ docker as the all-in-one environment for compiling and running the samples.
+
+** Host Requirements
+
+- Docker
+- Qemu
+
+** Repo setup 
+
+Clone this repo and its submodules:
+#+BEGIN_SRC bash
+git clone --recursive https://github.com/djwillia/inner_unikernels.git
+cd inner_unikernels
+#+END_SRC
+
+** Build Docker
+
+#+BEGIN_SRC bash
+# use the exist docker image from packages registry
+# ensure that you've logged into ghcr.io by the guidelines below
+# https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-with-a-personal-access-token-classic
+docker pull ghcr.io/djwillia/inner_unikernels/runtime:latest
+docker tag ghcr.io/djwillia/inner_unikernels/runtime:latest runtime:latest
+# or build by docker builder (it takes a lot of time)
+make docker
+#+END_SRC
+
+** Build Dependencies
+
+#+BEGIN_SRC bash
+# On host
+cp ./q-script/.config ./linux/.config
+# build kernel
+make vmlinux
+# build bpf
+make bpftool
+# build libiu
+make iu
+#+END_SRC
+
+** Run Sample Hello
+
+#+BEGIN_SRC bash
+# build sample hello
+make iu-examples
+# start qemu
+make qemu-run
+# start ssh session with qemu
+make qemu-ssh 
+# assign ssh port with SSH_PORT env 
+SSH_PORT=52222 make qemu-run
+SSH_PORT=52222 make qemu-ssh
+# alternatively, use standard ssh to connect to vm
+ssh -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -t root@127.0.0.1 -p 52222
+# run sample hello
+cd ../inner_unikernels/samples/hello
+./loader &
+./event-trigger
+#+END_SRC
+
+** Run with gdb
+#+BEGIN_SRC bash
+# prepare with remote gdb (default port is 1234)
+gdb linux/vmlinux -ex "target remote localhost:1234"
+# start qemu with gdb port mapping
+make qemu-run-gdb 
+
+# The boot process will halt and the below output is expected. 
+Reading symbols from linux/vmlinux...
+Remote debugging using localhost:1234
+0x00000000000ea0b6 in ?? ()
+# Type `c` to continue
+(gdb) c
+Continuing.
+#+END_SRC
+
+*** Docker FAQ
+
+- Q: What can I do if I encounter network error when doing the apt update?
+- A: In the ~./docker/docker-linux-builder/Makefile~, add ~--network=host~ in the docker command. ~docker build --progress=plain --network=host -t runtime~.
+
+** Migration to ROSA lab
+
+If you haven't update your remote url, you need to update it:
+#+BEGIN_SRC bash
+# Assuming the remote is called "origin"
+git remote set-url origin git@github.com:rosalab/inner_unikernels.git
+#+END_SRC
+
+To update the Linux submodule link in case you are not on `main`, you need to
+backport commit [[https://github.com/rosalab/inner_unikernels/commit/69680052549ba993049c05bcb6e3573b3bc23dc3.patch][69680052549b]]
+
+No matter you are on `main` or not, you need to sync submodules again:
+#+BEGIN_SRC bash
+git submodule sync
+#+END_SRC
