@@ -1,8 +1,4 @@
-# CS423 Fall 2023 MP2: Rate-Monotonic CPU Scheduling
-
-**Assignment Due**: Oct. 19th at 11:59 PM CT
-
-**Last Updated**: Oct. 13th
+# Rate-Monotonic CPU Scheduling
 
 This document will guide you through your MP2 for CS 423 Operating System Design. In this MP, you will learn how to create a simple Linux kernel scheduler from sketch.
 
