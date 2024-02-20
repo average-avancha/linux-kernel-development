@@ -6,7 +6,7 @@ Work process 1: 1024MB Memory, Random Access, and 50,000 accesses per iteration
 Work process 2: 1024MB Memory, Random Access, and 10,000 accesses per iteration
 
 ```
-nice ./work 1024 R 50000 & nice ./work 1024 R 10000 & ./monitor > /home/neo/cs423/mp0/linux-5.15.127/profile1.da
+nice ./work 1024 R 50000 & nice ./work 1024 R 10000 & ./monitor > $QEMU_HOME/linux-5.15.127/profile1.da
 ```
 
 ![Alt text](case_1_work_1_2.png)
@@ -16,7 +16,7 @@ Work process 3: 1024MB Memory, Random Locality Access, and 50,000 accesses per i
 Work process 4: 1024MB Memory, Locality-based Access, and 10,000 accesses per iteration
 
 ```
-nice ./work 1024 R 50000 & nice ./work 1024 L 10000 & ./monitor > /home/neo/cs423/mp0/linux-5.15.127/profile2.data
+nice ./work 1024 R 50000 & nice ./work 1024 L 10000 & ./monitor > $QEMU_HOME/linux-5.15.127/profile2.data
 ```
 
 ![Alt text](case_1_work_3_4.png)
@@ -27,7 +27,7 @@ Similarly, the total accumulated page faults seen is higher for the set of work 
 
 The total execution time for work process 1 and 2 with only random accesses was significantly longer than the total execution time of work processes 3 and 4 with one process having the benefit of locality based access.
 
-This can be trivially attributed to the benefit from having one process attempt to access memory locally. This reduces the chances of access a location in virtual memory that is not loaded into memory or close to another page table that is already loaded in memory thus only having to construct/load only one page table entry in the multi-level page tables. Due to the reduced likelyhood of page faults from locality or reducing the levels of page table entries to build, both the page fault rate and overall process time decrease from the benefits of locality based accesses.
+This can be trivially attributed to the benefit from having one process attempt to access memory locally. This reduces the chances of access a location in virtual memory that is not loaded into memory or close to another page table that is already loaded in memory thus only having to construct/load only one page table entry in the multi-level page tables. Due to the reduced likelihood of page faults from locality or reducing the levels of page table entries to build, both the page fault rate and overall process time decrease from the benefits of locality based accesses.
 
 # Case Study 2: Multiprogramming
 
