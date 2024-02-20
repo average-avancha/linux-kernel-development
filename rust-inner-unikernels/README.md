@@ -1,4 +1,4 @@
-# MP4: Rust-based inner-unikernels
+# Rust-based inner-unikernels
 
 **Note: You need to be on the x86-64 architecture in order to work on this
 MP. We assume the x86-64 architecture and ABI in this writeup.**
